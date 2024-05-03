@@ -1,7 +1,10 @@
 from flask_login import UserMixin
-from . import db
+from datetime import timedelta, timezone, datetime
 from sqlalchemy.sql import func
 from uuid import uuid4
+from . import db
+import secrets
+from .mixins import BaseMixin
 
 
 def get_uuid():
@@ -12,21 +15,54 @@ class Role(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(255), unique=True, nullable=False)
 
-class User(UserMixin, db.Model):
+class Profile(db.Model):
+    __tablename__ = "profiles"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    path = db.Column(db.String(255), nullable=False)
+    
+    user = db.relationship('User', backref='profiles')
+
+
+class User(db.Model, BaseMixin, UserMixin):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    first_name = db.Column(db.String(255), nullable=False)
-    last_name = db.Column(db.String(255), nullable=False)
-    email = db.Column(db.String(255), unique=True, nullable=False)
-    password = db.Column(db.String(255), nullable=False)
+    first_name = db.Column(db.String(30), nullable=False)
+    last_name = db.Column(db.String(30), nullable=False)
+    email = db.Column(db.String(60), unique=True, nullable=False)
+    password = db.Column(db.String(50), nullable=False)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
     token = db.Column(db.String(255), unique=True, nullable=True)
+    token_expiration = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, server_default=func.now())
-
+    
     role = db.relationship('Role', backref='users')
 
     def __repr__(self):
         return f'<User {self.first_name}>'
+
+    def get_token(self, expires_in=3600):
+        now = datetime.now(timezone.utc)  
+        if self.token and self.token_expiration and self.token_expiration > now + timedelta(seconds=60):
+            return self.token
+        self.token = secrets.token_hex(16)
+        self.token_expiration = now + timedelta(seconds=expires_in)
+        db.session.add(self)
+        db.session.commit()
+        return self.token
+
+        
+    def revoke_token(self):
+        self.token_expiration = None
+        db.session.add(self)
+        db.session.commit()
+
+    @staticmethod
+    def check_token(token):
+        user = User.query.filter_by(token=token).first()
+        if user is None or (user.token_expiration and user.token_expiration < datetime.now(timezone.utc)):
+            return None
+        return user
 
 class Photo(db.Model):
     __tablename__ = "photos"
