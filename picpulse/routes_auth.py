@@ -1,36 +1,36 @@
-from flask import Blueprint, request, jsonify, current_app, make_response, session
+from flask import Blueprint, request, jsonify, session, current_app
 from flask_login import login_required, login_user, logout_user
-from . import db_manager as db, login_manager, logger
-from werkzeug.security import generate_password_hash, check_password_hash
-from .models import User
-from datetime import datetime, timedelta
-import secrets
-import jwt
+from . import db, login_manager, logger
 from flask_bcrypt import Bcrypt
+from .models import User
+import secrets
 
 
-# Blueprint
 auth_bp = Blueprint("auth_bp", __name__)
 bcrypt = Bcrypt()
+
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     email = request.json["email"]
     password = request.json["password"]
 
-    user = User.query.filter_by(email=email).first()
-
-    if user is None:
+    userExist = User.query.filter_by(email=email).first()
+    print(userExist)
+    if userExist is None:
         return jsonify({"error": "Unauthorized Access"}), 401
   
-    if not bcrypt.check_password_hash(user.password, password):
+    if not bcrypt.check_password_hash(userExist.password, password):
         return jsonify({"error": "Unauthorized"}), 401
       
     token = secrets.token_urlsafe(20)
   
     session['token'] = token
 
+    current_app.logger.info("HA INICIADO SESIÓN")
+
     return jsonify({'token': token}), 200
+
 
 
 
@@ -40,22 +40,26 @@ def register():
     last_name = request.json['last_name']
     email = request.json["email"]
     password = request.json["password"]
+    role_id = 1 # Customer
 
-    user_exists = User.query.filter_by(email=email).first()
-    if user_exists:
+    userExist = User.query.filter_by(email=email).first()
+    if userExist:
         return jsonify({"error": "Email already exists"}), 409
 
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    new_user = User(first_name=first_name, last_name=last_name, email=email, password=hashed_password)
-    db.session.add(new_user)
+    
+    newUser = User(first_name=first_name, last_name=last_name, email=email, password=hashed_password, role_id=role_id)
+    db.session.add(newUser)
     db.session.commit()
  
-    session["user_id"] = new_user.id
+    session["user_id"] = newUser.id
  
-    return jsonify({
-        "id": new_user.id,
-        "email": new_user.email
-    })
+    
+    current_app.logger.info("USUARIO REGISTRADO")
+
+    return jsonify({ "id": newUser.id, "email": newUser.email })
+
+
 
 
 @auth_bp.route("/logout")
