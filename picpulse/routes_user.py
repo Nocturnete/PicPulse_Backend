@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, current_app
 from . import db, logger
 from .models import User
+from .routes_auth import token_auth
 
 
 user_bp = Blueprint("user_bp", __name__)
@@ -8,6 +9,7 @@ user_bp = Blueprint("user_bp", __name__)
 
 # TODO Ruta para obtener todos los usuarios
 @user_bp.route('/users', methods=['GET'])
+@token_auth.login_required
 def get_users():
     users = User.query.all()
 

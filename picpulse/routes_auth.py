@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, session, current_app
-from . import db, logger
+from . import db, logger, cross_origin
 from flask_bcrypt import Bcrypt
 from .models import User
 from flask_httpauth import HTTPTokenAuth
@@ -7,38 +7,32 @@ from flask_httpauth import HTTPTokenAuth
 
 auth_bp = Blueprint("auth_bp", __name__)
 bcrypt = Bcrypt()
-token_auth = HTTPTokenAuth()
+token_auth = HTTPTokenAuth(scheme='Bearer')
 
-
+@cross_origin
 @auth_bp.route("/login", methods=["POST"])
 def login():
     email = request.json["email"]
     password = request.json["password"]
 
     userExist = User.query.filter_by(email=email).first()
-    if userExist is None:
-        return jsonify({"error": "Unauthorized Access"}), 401
-  
-    if not bcrypt.check_password_hash(userExist.password, password):
+    if userExist is None or not bcrypt.check_password_hash(userExist.password, password):
         return jsonify({"error": "Unauthorized"}), 401
     
     token = userExist.get_token()
-    
+
     user_data = {
-        # "id": userExist.id,
         "first_name": userExist.first_name,
         "last_name": userExist.last_name,
         "email": userExist.email,
         "role_id": userExist.role_id
     }
 
-    print(user_data)
     current_app.logger.info("User logged in")
     return jsonify({"token": token, "user": user_data}), 200
 
 
-
-
+@cross_origin
 @auth_bp.route("/register", methods=["POST"])
 def register():
     first_name = request.json['first_name']
@@ -61,6 +55,7 @@ def register():
     return jsonify({'mensaje': 'User created successfully!'})
 
 
+@cross_origin
 @auth_bp.route("/logout", methods=["POST"])
 @token_auth.login_required
 def logout():
@@ -68,6 +63,7 @@ def logout():
     return jsonify({"message": "User logout successfully"}), 201
 
 
+@cross_origin
 @token_auth.verify_token
 def verify_token(token):
     current_app.logger.info(f"verify_token: {token}")

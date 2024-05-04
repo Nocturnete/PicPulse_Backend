@@ -1,5 +1,5 @@
 from flask_login import UserMixin
-from datetime import timedelta, timezone, datetime
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.sql import func
 from uuid import uuid4
 from . import db
@@ -41,17 +41,19 @@ class User(db.Model, BaseMixin, UserMixin):
     def __repr__(self):
         return f'<User {self.first_name}>'
 
-    def get_token(self, expires_in=3600):
-        now = datetime.now(timezone.utc)  
-        if self.token and self.token_expiration and self.token_expiration > now + timedelta(seconds=60):
-            return self.token
+    def get_token(self, expires_in=70):
+        now = datetime.now(timezone.utc)
+        if self.token and self.token_expiration:
+            token_expiration_naive = self.token_expiration.replace(tzinfo=None)
+            now_naive = now.replace(tzinfo=None)
+            if token_expiration_naive > now_naive + timedelta(seconds=30):
+                return self.token
         self.token = secrets.token_hex(16)
         self.token_expiration = now + timedelta(seconds=expires_in)
         db.session.add(self)
         db.session.commit()
         return self.token
-
-        
+    
     def revoke_token(self):
         self.token_expiration = None
         db.session.add(self)
@@ -60,9 +62,11 @@ class User(db.Model, BaseMixin, UserMixin):
     @staticmethod
     def check_token(token):
         user = User.query.filter_by(token=token).first()
-        if user is None or (user.token_expiration and user.token_expiration < datetime.now(timezone.utc)):
+        if user is None or (user.token_expiration and user.token_expiration < datetime.now(timezone.utc).replace(tzinfo=None)):
             return None
         return user
+    
+
 
 class Photo(db.Model):
     __tablename__ = "photos"
