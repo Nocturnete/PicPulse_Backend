@@ -1,20 +1,34 @@
 from . import db
 
 class BaseMixin():
+
+    @classmethod
+    def create(cls, **kwargs):
+        r = cls(**kwargs)
+        return r.save()
+    
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+        return self.save()
     
     def save(self):
-        db.session.add(self)
-        db.session.commit()
-        return self
-    
-    def remove(self):
-        db.session.remove(self)
-        return True
-    
+        try:
+            db.session.add(self)
+            db.session.commit()
+            return self
+        except:
+            return False
+        
+    def delete(self):
+        try:
+            db.session.delete(self)
+            db.session.commit()
+            return True
+        except:
+            return False
+        
     @classmethod
     def db_query(cls, *args):
         return db.session.query(cls, *args)
-    
-    @classmethod
-    def get_filtered_by(cls, **kwargs):
-        return cls.db_query().filter_by(**kwargs).one_or_none()

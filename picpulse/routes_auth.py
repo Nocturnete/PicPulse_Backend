@@ -1,70 +1,75 @@
-from flask import Blueprint, request, jsonify, session, current_app
-from . import db, logger, cross_origin
+from flask import Blueprint, request, jsonify, current_app
+from . import db, cross_origin
 from flask_bcrypt import Bcrypt
 from .models import User
 from flask_httpauth import HTTPTokenAuth
 
 
 auth_bp = Blueprint("auth_bp", __name__)
+
 bcrypt = Bcrypt()
 token_auth = HTTPTokenAuth(scheme='Bearer')
 
+
+# TODO REGISTER
 @cross_origin
-@auth_bp.route("/login", methods=["POST"])
-def login():
-    email = request.json["email"]
-    password = request.json["password"]
-
-    userExist = User.query.filter_by(email=email).first()
-    if userExist is None or not bcrypt.check_password_hash(userExist.password, password):
-        return jsonify({"error": "Unauthorized"}), 401
-    
-    token = userExist.get_token()
-
-    user_data = {
-        "first_name": userExist.first_name,
-        "last_name": userExist.last_name,
-        "email": userExist.email,
-        "role_id": userExist.role_id
-    }
-
-    current_app.logger.info("User logged in")
-    return jsonify({"token": token, "user": user_data}), 200
-
-
-@cross_origin
-@auth_bp.route("/register", methods=["POST"])
-def register():
-    first_name = request.json['first_name']
-    last_name = request.json['last_name']
-    email = request.json["email"]
-    password = request.json["password"]
+@auth_bp.route("/signup", methods=["POST"])
+def signup():
+    data = request.json
+    name = data.get('name')
+    last_name = data.get('last_name')
+    email = data.get('email')
+    password = data.get('password')
     role_id = 1 # Customer
 
-    userExist = User.query.filter_by(email=email).first()
-    if userExist:
-        return jsonify({"error": "Email already exists"}), 409
+    if User.query.filter_by(email=email).first():
+        return jsonify({'message': 'User already exists!'}), 400
 
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+    hashedPassword = bcrypt.generate_password_hash(password).decode('utf-8')
     
-    newUser = User(first_name=first_name, last_name=last_name, email=email, password=hashed_password, role_id=role_id)
+    newUser = User(name=name, last_name=last_name, email=email, password=hashedPassword, role_id=role_id)
     db.session.add(newUser)
     db.session.commit()
     
-    current_app.logger.info("USUARIO REGISTRADO")
-    return jsonify({'mensaje': 'User created successfully!'})
+    current_app.logger.info("USER REGISTERED")
+    return jsonify({'message': 'User registered successfully!'}), 201
 
-
+# TODO LOGIN
 @cross_origin
-@auth_bp.route("/logout", methods=["POST"])
-@token_auth.login_required
-def logout():
-    token_auth.current_user().revoke_token()
-    return jsonify({"message": "User logout successfully"}), 201
+@auth_bp.route("/signin", methods=["POST"])
+def signin():
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
 
+    user = User.query.filter_by(email=email).first()
+
+    if user and bcrypt.check_password_hash(user.password, password):
+        token = user.get_token()
+
+        current_app.logger.info("LOGIN SUCCESSFUL")
+        return jsonify({
+            'message': 'Login successful',
+            'token': token,
+            'name': user.name,
+            'last_name': user.last_name,
+            'role_id': user.role_id
+        }), 200
+    
+    else:
+        current_app.logger.info("INVALID USER")
+        return jsonify({'message': 'Invalid email or password'}), 401
 
 @cross_origin
 @token_auth.verify_token
 def verify_token(token):
     current_app.logger.info(f"verify_token: {token}")
     return User.check_token(token)
+
+# TODO LOGOUT
+@cross_origin
+@auth_bp.route("/logout", methods=["POST"])
+@token_auth.login_required
+def logout():
+    token_auth.current_user().revoke_token()
+    return jsonify({"message": "User logout successfully"}), 201
