@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app, g
+from flask import Blueprint, request, jsonify, current_app, g, send_from_directory
 from werkzeug.utils import secure_filename
 from . import db, cross_origin
 from .models import Photo
@@ -7,19 +7,21 @@ import os
 from sqlalchemy.sql import func
 import datetime
 
+
 photo_bp = Blueprint("photo_bp", __name__)
+
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in current_app.config.get('ALLOWED_EXTENSIONS')
 
+
+# TODO CREATE PHOTO
 @cross_origin
 @photo_bp.route('/photo/create', methods=['POST'])
-# @token_auth.login_required
+@token_auth.login_required
 def create_photo():
-    # user_id = g.current_user.id
-    user_id = 4
-    print("USER ID: ", user_id)
-
+    user_id = g.current_user.id
+    # print("USER ID: ", user_id)
 
     file = request.files['file']
 
@@ -48,10 +50,21 @@ def create_photo():
     return jsonify({"error": "Invalid file type"}), 400
 
 
+# TODO GRID PHOTO
+@cross_origin
+@photo_bp.route('/photos', methods=['GET'])
+def photo_grid():
+    photo_folder = os.path.join(current_app.root_path, 'uploads')
+    # print("PHOTOS FOLDER", photo_folder)
+    photos = os.listdir(photo_folder)
+    # print("PHOTOS LIST", photos)
+    photo_urls = [f'/uploads/{photo}' for photo in photos]
+    # print("URLS PHOTOS", photo_urls)
+    current_app.logger.info("LISTA DE FOTOS CARGADA")
+    return jsonify(images=photo_urls), 200
 
-# # TODO GRID PHOTO
-# @cross_origin
-# @photo_bp.route('/photos', methods=['GET'])
-# def photo_grid():
-#     images = os.listdir(current_app.config['UPLOAD_FOLDER'])
-#     return jsonify(images=images)
+
+@cross_origin
+@photo_bp.route('/uploads/<path:filename>', methods=['GET'])
+def serve_photo(filename):
+    return send_from_directory(os.path.join(current_app.root_path, 'uploads'), filename)

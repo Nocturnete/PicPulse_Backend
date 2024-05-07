@@ -34,7 +34,7 @@ def list_users():
 # TODO Profile
 @cross_origin
 @user_bp.route('/profile/<int:user_id>', methods=['GET'])
-# @token_auth.login_required
+@token_auth.login_required
 def get_user_profile(user_id):
     user = User.query.get(user_id)
     if user:
