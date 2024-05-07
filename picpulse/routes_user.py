@@ -1,6 +1,6 @@
-from flask import Blueprint, jsonify, current_app
-from . import db, cross_origin
-from .models import User
+from flask import Blueprint, jsonify, current_app, request
+from . import cross_origin
+from .models import User, Profile
 from .routes_auth import token_auth
 
 
@@ -31,44 +31,24 @@ def list_users():
     
     return jsonify(user_list)
 
-
-# # TODO Ruta para obtener un usuario por ID
-# @user_bp.route('/user/<int:user_id>', methods=['GET'])
-# def get_user(user_id):
-#     user = User.query.get(user_id)
-
-#     if user:
-#         user_data = {
-#             "id": user.id, 
-#             "first_name": user.first_name,
-#             "last_name": user.last_name,
-#             "email": user.email,
-#             "role_id": user.role.name
-#         }
-
-#         current_app.logger.info("DATOS DEL USUARIO CARGADOS")
-
-#         return jsonify(user_data), 200
-    
-#     else:
-#         current_app.logger.info("DATOS DEL USUARIO NO ENCONTRADOS")
-
-#         return jsonify({"message": "User not found"}), 404
-    
-
-# # TODO Ruta para eliminar un usuario
-# @user_bp.route("/user/<int:user_id>", methods=["DELETE"])
-# def delete_user(user_id):
-#     user = User.query.get(user_id)
-#     if user:
-#         db.session.delete(user)
-#         db.session.commit()
-        
-#         current_app.logger.info("USUARIO ELIMINADO")
-
-#         return jsonify({"message": "User deleted successfully"}), 200
-    
-#     else:
-#         current_app.logger.info("NO SE HA PODIDO ELIMINAR EL USUARIO")
-
-#         return jsonify({"message": "User not found"}), 404
+# TODO Profile
+@cross_origin
+@user_bp.route('/profile/<int:user_id>', methods=['GET'])
+# @token_auth.login_required
+def get_user_profile(user_id):
+    user = User.query.get(user_id)
+    if user:
+        profile = Profile.query.filter_by(user_id=user_id).first()
+        if profile:
+            profile_data = {
+                "id": profile.id,
+                "user_id": profile.user_id,
+                "sexo": profile.sexo,
+                "phone": profile.phone,
+                "file_path": profile.file_path
+            }
+            return jsonify(profile_data)
+        else:
+            return jsonify({"message": "Profile not found"}), 404
+    else:
+        return jsonify({"message": "User not found"}), 404

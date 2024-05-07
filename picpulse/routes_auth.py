@@ -1,7 +1,7 @@
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, g, session
 from . import db, cross_origin
 from flask_bcrypt import Bcrypt
-from .models import User
+from .models import User, Profile
 from flask_httpauth import HTTPTokenAuth
 
 
@@ -31,6 +31,10 @@ def signup():
     db.session.add(newUser)
     db.session.commit()
     
+    newProfile = Profile(user_id=newUser.id, sexo=None, phone=None, file_path=None)
+    db.session.add(newProfile)
+    db.session.commit()
+
     current_app.logger.info("USER REGISTERED")
     return jsonify({'message': 'User registered successfully!'}), 201
 
@@ -45,24 +49,28 @@ def signin():
     user = User.query.filter_by(email=email).first()
 
     if user and bcrypt.check_password_hash(user.password, password):
-        token = user.get_token()
-
+        
         current_app.logger.info("LOGIN SUCCESSFUL")
+
         return jsonify({
-            'message': 'Login successful',
-            'token': token,
+            'token': user.get_token(),
+            'id': user.id,
             'name': user.name,
             'last_name': user.last_name,
-            'role_id': user.role_id
+            'email': user.email,
+            'role_id': user.role_id,
         }), 200
     
     else:
         current_app.logger.info("INVALID USER")
         return jsonify({'message': 'Invalid email or password'}), 401
 
+# TODO VERIFY
 @cross_origin
 @token_auth.verify_token
 def verify_token(token):
+    user = User.query.filter_by(token=token).first()
+    g.current_user = user
     current_app.logger.info(f"verify_token: {token}")
     return User.check_token(token)
 
@@ -72,4 +80,6 @@ def verify_token(token):
 @token_auth.login_required
 def logout():
     token_auth.current_user().revoke_token()
+    session.pop('user_data', None)
     return jsonify({"message": "User logout successfully"}), 201
+

@@ -11,5 +11,8 @@ class Config:
     SQLALCHEMY_DATABASE_URI = environ.get('SQLALCHEMY_DATABASE_URI_MYSQL')
     SQLALCHEMY_ECHO = environ.get('SQLALCHEMY_ECHO')
 
-    UPLOAD_FOLDER = environ.get("UPLOAD_FOLDER")
+    UPLOAD_FOLDER = environ.get('UPLOAD_FOLDER')
+    ALLOWED_EXTENSIONS = set(environ.get('ALLOWED_EXTENSIONS').split(','))
+
+    EXTERNAL_URL = environ.get('EXTERNAL_URL')    
 

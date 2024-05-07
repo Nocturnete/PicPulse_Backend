@@ -6,7 +6,6 @@ import secrets
 from .mixins import BaseMixin
 
 
-
 def get_uuid():
     return uuid4().hex
 
@@ -51,7 +50,7 @@ class User(db.Model, BaseMixin):
                 return self.token
 
         self.token = secrets.token_hex(16)
-        self.token_expiration = now + timedelta(seconds=10)
+        self.token_expiration = now + timedelta(seconds=3600)
         db.session.add(self)
         db.session.commit()
         print("Se ha generado un nuevo token.")
@@ -92,7 +91,7 @@ class Album(db.Model):
     user = db.relationship('User', backref='albums')
 
 
-class Photo(db.Model):
+class Photo(db.Model, BaseMixin):
     __tablename__ = "photos"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
