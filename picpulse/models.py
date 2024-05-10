@@ -70,6 +70,14 @@ class User(db.Model, BaseMixin):
             return None
         return user
 
+    def serialize(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'last_name': self.last_name,
+            'email': self.email,
+        }
+
 
 class Profile(db.Model):
     __tablename__ = "profiles"
@@ -118,3 +126,7 @@ class Photo_improved(db.Model):
 
     model = db.relationship('Model', backref='photos_improved')
     photo = db.relationship('Photo', backref='photos_improved')
+
+
+    def __repr__(self):
+        return '<PhotoImproved {}>'.format(self.id)
