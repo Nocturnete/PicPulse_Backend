@@ -42,6 +42,7 @@ def create_photo():
             format=filename.rsplit('.', 1)[1].lower(),
             created_at=func.now()
         )
+        
         db.session.add(photo)
         db.session.commit()
 

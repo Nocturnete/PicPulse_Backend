@@ -1,7 +1,10 @@
-from flask import Blueprint, jsonify, current_app, request
+from flask import Blueprint, jsonify, current_app, request, send_from_directory
 from . import db, cross_origin
 from .models import User, Profile, Album, Photo, Photo_improved
 from .routes_auth import token_auth
+from werkzeug.utils import secure_filename
+import os
+
 
 
 user_bp = Blueprint("user_bp", __name__)
@@ -86,28 +89,6 @@ def update_user(user_id):
     current_app.logger.info("USER UPDATED")
     return jsonify({"message": "User updated successfully", "user": user.serialize()}), 200
 
-# TODO PROFILE USER
-@cross_origin
-@user_bp.route('/profile/<int:user_id>', methods=['GET'])
-@token_auth.login_required
-def get_user_profile(user_id):
-    user = User.query.get(user_id)
-    if user:
-        profile = Profile.query.filter_by(user_id=user_id).first()
-        if profile:
-            profile_data = {
-                "id": profile.id,
-                "user_id": profile.user_id,
-                "sexo": profile.sexo,
-                "phone": profile.phone,
-                "file_path": profile.file_path
-            }
-            return jsonify(profile_data)
-        else:
-            return jsonify({"message": "Profile not found"}), 404
-    else:
-        return jsonify({"message": "User not found"}), 404
-    
 # TODO DELETE USER
 @cross_origin
 @user_bp.route("/user/delete/<int:user_id>", methods=["DELETE"])
@@ -138,3 +119,63 @@ def delete_user(user_id):
     db.session.commit()
 
     return jsonify({"message": "User deleted successfully"}), 200
+
+# TODO PROFILE USER
+
+@cross_origin
+@user_bp.route('/profile/<int:user_id>', methods=['GET', 'POST'])
+@token_auth.login_required
+def handle_user_profile(user_id):
+    if request.method == 'GET':
+        user = User.query.get(user_id)
+
+        if not user:
+            return jsonify({"message": "User not found"}), 404
+
+        profile = Profile.query.filter_by(user_id=user_id).first()
+        
+        if not profile:
+            return jsonify({"message": "Profile not found"}), 404
+
+        profile_data = {
+            "id": profile.id,
+            "user_id": profile.user_id,
+            "sexo": profile.sexo,
+            "phone": profile.phone,
+            "file_path": profile.file_path
+        }
+
+        return jsonify(profile_data)
+        
+    elif request.method == 'POST':
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"message": "User not found"}), 404
+
+        profile = Profile.query.filter_by(user_id=user_id).first()
+        if not profile:
+            return jsonify({"message": "Profile not found"}), 404
+
+        if 'image' not in request.files:
+            return jsonify({"message": "No image provided"}), 400
+
+        image_file = request.files['image']
+        if image_file.filename == '':
+            return jsonify({"message": "No selected image"}), 400
+
+        if image_file:
+            user_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], user.email)
+            if not os.path.exists(user_folder):
+                os.makedirs(user_folder)
+
+            filename = secure_filename(image_file.filename)
+            image_path = os.path.join(user_folder, filename)
+            image_file.save(image_path)
+
+            profile.file_path = os.path.join(user.email, filename)
+            print("PROFILEEEEEEE", profile.file_path)
+            db.session.commit()
+            return jsonify({"message": "Image uploaded successfully"}), 200
+        
+        else:
+            return jsonify({"message": "Failed to upload image"}), 400
