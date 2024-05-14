@@ -1,10 +1,9 @@
-from flask import Blueprint, jsonify, current_app, request, send_from_directory
+from flask import Blueprint, jsonify, current_app, request
 from . import db, cross_origin
 from .models import User, Profile, Album, Photo, Photo_improved
 from .routes_auth import token_auth
 from werkzeug.utils import secure_filename
 import os
-
 
 
 user_bp = Blueprint("user_bp", __name__)
@@ -121,19 +120,16 @@ def delete_user(user_id):
     return jsonify({"message": "User deleted successfully"}), 200
 
 # TODO PROFILE USER
-
 @cross_origin
 @user_bp.route('/profile/<int:user_id>', methods=['GET', 'POST'])
 @token_auth.login_required
 def handle_user_profile(user_id):
     if request.method == 'GET':
         user = User.query.get(user_id)
-
         if not user:
             return jsonify({"message": "User not found"}), 404
 
         profile = Profile.query.filter_by(user_id=user_id).first()
-        
         if not profile:
             return jsonify({"message": "Profile not found"}), 404
 
@@ -156,10 +152,10 @@ def handle_user_profile(user_id):
         if not profile:
             return jsonify({"message": "Profile not found"}), 404
 
-        if 'image' not in request.files:
+        if 'file' not in request.files:
             return jsonify({"message": "No image provided"}), 400
 
-        image_file = request.files['image']
+        image_file = request.files['file']
         if image_file.filename == '':
             return jsonify({"message": "No selected image"}), 400
 
@@ -173,9 +169,37 @@ def handle_user_profile(user_id):
             image_file.save(image_path)
 
             profile.file_path = os.path.join(user.email, filename)
-            print("PROFILEEEEEEE", profile.file_path)
+
             db.session.commit()
             return jsonify({"message": "Image uploaded successfully"}), 200
         
         else:
             return jsonify({"message": "Failed to upload image"}), 400
+        
+# TODO DELETE PROFILE IMAGE
+@cross_origin
+@user_bp.route("/profile/delete-image/<int:user_id>", methods=["DELETE"])
+@token_auth.login_required
+def delete_profile_image(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    profile = Profile.query.filter_by(user_id=user_id).first()
+    if not profile:
+        return jsonify({"message": "Profile not found"}), 404
+
+    if not profile.file_path:
+        return jsonify({"message": "No image to delete"}), 400
+
+    try:
+        image_path = os.path.join(current_app.config['UPLOAD_FOLDER'], profile.file_path)
+        os.remove(image_path)
+    except OSError as e:
+        return jsonify({"message": f"Failed to delete image: {str(e)}"}), 500
+
+    profile.file_path = None
+    db.session.commit()
+
+    return jsonify({"message": "Image deleted successfully"}), 200
+
