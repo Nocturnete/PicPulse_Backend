@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app, g, session
 from . import db, cross_origin
 from flask_bcrypt import Bcrypt
-from .models import User, Profile
+from .models import User, Profile, Album
 from flask_httpauth import HTTPTokenAuth
 
 
@@ -31,9 +31,14 @@ def signup():
     db.session.add(newUser)
     db.session.commit()
     
-    newProfile = Profile(user_id=newUser.id, sexo=None, phone=None, file_path=None)
+    newProfile = Profile(gender=None, phone=None, file_path=None, user_id=newUser.id)
     db.session.add(newProfile)
     db.session.commit()
+
+    newAlbum = Album(name=newUser.id, user_id=newUser.id)
+    db.session.add(newAlbum)
+    db.session.commit()
+
 
     current_app.logger.info("USER REGISTERED")
     return jsonify({'message': 'User registered successfully!'}), 201

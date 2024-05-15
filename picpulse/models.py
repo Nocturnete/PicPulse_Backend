@@ -30,9 +30,9 @@ class User(db.Model, BaseMixin):
     last_name = db.Column(db.String(30), nullable=False)
     email = db.Column(db.String(60), unique=True, nullable=False)
     password = db.Column(db.String(50), nullable=False)
-    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
     token = db.Column(db.String(255), unique=True, nullable=True)
     token_expiration = db.Column(db.DateTime, nullable=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
     created_at = db.Column(db.DateTime, server_default=func.now())
 
     role = db.relationship('Role', backref='users')
@@ -79,54 +79,58 @@ class User(db.Model, BaseMixin):
         }
 
 
-class Profile(db.Model):
-    __tablename__ = "profiles"
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    sexo = db.Column(db.String(255))
-    phone = db.Column(db.Integer)
-    file_path = db.Column(db.String(255))
-
-    user = db.relationship('User', backref='profiles')
-
-
 class Album(db.Model):
     __tablename__ = 'albums'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(25), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    name = db.Column(db.String(255), nullable=False)
 
     user = db.relationship('User', backref='albums')
 
 
-class Photo(db.Model, BaseMixin):
-    __tablename__ = "photos"
+class Profile(db.Model):
+    __tablename__ = "profiles"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    gender = db.Column(db.String(255))
+    phone = db.Column(db.Integer)
+    file_path = db.Column(db.String(255))
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    path = db.Column(db.String(255), nullable=False)
-    size = db.Column(db.Integer, nullable=False)
-    format = db.Column(db.String(25), nullable=False)
-    album_id =  db.Column( db.Integer, db. ForeignKey('albums.id'))
-    created_at = db.Column(db.DateTime, server_default=func.now())
-    
-    user = db.relationship('User', backref='photos')
-    album = db.relationship('Album', backref='photos')
+
+    user = db.relationship('User', backref='profiles')
 
 
 class Photo_improved(db.Model):
     __tablename__ = "photos_improved"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    model_id = db.Column(db.Integer, db.ForeignKey('models.id'))
-    photo_id = db.Column(db.Integer, db.ForeignKey('photos.id'))
+    name = db.Column(db.String(100), nullable=False)
     path = db.Column(db.String(255), nullable=False)
     size = db.Column(db.Integer, nullable=False)
     format = db.Column(db.String(25), nullable=False)
-    rating = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    model_id = db.Column(db.Integer, db.ForeignKey('models.id'))
+    album_id = db.Column(db.Integer, db.ForeignKey('albums.id'))
     created_at = db.Column(db.DateTime, server_default=func.now())
 
+    user = db.relationship('User', backref='photos_improved')
     model = db.relationship('Model', backref='photos_improved')
-    photo = db.relationship('Photo', backref='photos_improved')
-
+    album = db.relationship('Album', backref='photos_improved')
 
     def __repr__(self):
         return '<PhotoImproved {}>'.format(self.id)
+
+
+class Photo(db.Model):
+    __tablename__ = "photos"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(100), nullable=False)
+    path = db.Column(db.String(255), nullable=False)
+    size = db.Column(db.Integer, nullable=False)
+    format = db.Column(db.String(25), nullable=False)
+    photo_improved_id = db.Column(db.Integer, db.ForeignKey('photos_improved.id')) 
+    created_at = db.Column(db.DateTime, server_default=func.now())
+    
+    photo_improved = db.relationship('Photo_improved', backref='photos')
+
+
+
+    

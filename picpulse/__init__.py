@@ -21,11 +21,12 @@ def create_app():
 
 
     with app.app_context():
-        from . import routes_auth, routes_user, routes_photo
+        from . import routes_auth, routes_user, routes_photo, routes_ia
 
         app.register_blueprint(routes_auth.auth_bp)
         app.register_blueprint(routes_user.user_bp)
         app.register_blueprint(routes_photo.photo_bp)
+        app.register_blueprint(routes_ia.ia_bp)
 
     
     app.logger.info("Aplicació iniciada")

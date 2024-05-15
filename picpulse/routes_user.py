@@ -50,7 +50,7 @@ def get_user(user_id):
         "name": user.name,
         "last_name": user.last_name,
         "email": user.email,
-        "gender": profile.sexo,
+        "gender": profile.gender,
         "phone": profile.phone
     }
 
@@ -136,7 +136,7 @@ def handle_user_profile(user_id):
         profile_data = {
             "id": profile.id,
             "user_id": profile.user_id,
-            "sexo": profile.sexo,
+            "gender": profile.gender,
             "phone": profile.phone,
             "file_path": profile.file_path
         }

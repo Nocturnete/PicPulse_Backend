@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app, g, send_from_directory
 from werkzeug.utils import secure_filename
 from . import db, cross_origin
-from .models import Photo
+from .models import Photo, Photo_improved
 from .routes_auth import token_auth
 import os
 from sqlalchemy.sql import func
@@ -21,34 +21,51 @@ def allowed_file(filename):
 @token_auth.login_required
 def create_photo():
     user_id = g.current_user.id
-    # print("USER ID: ", user_id)
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'No se proporcionó ningún archivo'}), 400
 
     file = request.files['file']
 
     if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-
+        return jsonify({'error': 'No se seleccionó ningún archivo'}), 400
+    
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        now = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        now = datetime.datetime.now().strftime('%Y-%m-%d_%H')
         unique_filename = f"{now}_{filename}"
-        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
-        file.save(filepath)
+        folder_name = f"{user_id}"
+        folder_path = os.path.join(current_app.config['UPLOAD_FOLDER'], folder_name)
 
-        photo = Photo(
-            user_id=user_id,
-            path=filepath,
-            size=os.path.getsize(filepath),
-            format=filename.rsplit('.', 1)[1].lower(),
-            created_at=func.now()
-        )
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+
+        file_path = os.path.join(folder_path, unique_filename)
+
+        try:
+            file.save(file_path)
+
+            new_photo_improved = Photo_improved(
+                name=filename,
+                path=file_path,
+                size=os.path.getsize(file_path),
+                format=file_path.rsplit('.', 1)[1],
+                user_id=user_id
+            )
+
+            db.session.add(new_photo_improved)
+            db.session.commit()
+
+            return jsonify({'message': 'La foto mejorada se ha guardado correctamente'}), 201
+
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
         
-        db.session.add(photo)
-        db.session.commit()
+    else:
+        return jsonify({'error': 'Tipo de archivo no permitido'}), 400
 
-        return jsonify({"message": "Photo uploaded successfully", "photo_id": photo.id}), 201
 
-    return jsonify({"error": "Invalid file type"}), 400
+
 
 
 # TODO GRID PHOTO
@@ -63,9 +80,3 @@ def photo_grid():
     # print("URLS PHOTOS", photo_urls)
     current_app.logger.info("LISTA DE FOTOS CARGADA")
     return jsonify(images=photo_urls), 200
-
-
-@cross_origin
-@photo_bp.route('/uploads/<path:filename>', methods=['GET'])
-def serve_photo(filename):
-    return send_from_directory(os.path.join(current_app.root_path, 'uploads'), filename)
