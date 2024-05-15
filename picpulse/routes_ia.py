@@ -1,4 +1,6 @@
-from flask import Blueprint, jsonify, request, g, current_app
+import os
+import datetime
+from flask import Blueprint, jsonify, request, current_app, g, send_from_directory
 from werkzeug.utils import secure_filename
 from .models import Photo, Photo_improved, Album
 from .routes_auth import token_auth
@@ -6,27 +8,21 @@ from sqlalchemy.sql import func
 from . import db, cross_origin
 import picpulse.SR as arch
 import numpy as np
-import datetime
 import torch
 import cv2
-import os
-
 
 ia_bp = Blueprint('ia_bp', __name__)
 
 device = torch.device('cpu')
-model_path = 'picpulse/models/HightQuality.pth' 
+model_path = 'picpulse/models/HighQuality.pth' 
 model = arch.RRDBNet(3, 3, 64, 23, gc=32)
 model.load_state_dict(torch.load(model_path, map_location=device), strict=False)
 model.eval()
 model = model.to(device) 
 
-
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in current_app.config.get('ALLOWED_EXTENSIONS')
 
-
-@cross_origin
 @ia_bp.route('/process_image', methods=['POST'])
 @token_auth.login_required
 def process_image():
@@ -80,7 +76,7 @@ def process_image():
             output = (output * 255.0).round()
 
             processed_image_name = "HQ_" + unique_filename
-            processed_image_path =  os.path.join(folder_path, processed_image_name)
+            processed_image_path =  os.path.join(current_app.config['UPLOAD_FOLDER'], folder_name, processed_image_name)  # Modificado
             
             cv2.imwrite(processed_image_path, output)
             
@@ -99,18 +95,17 @@ def process_image():
                 album_id = album_id,
                 created_at = func.now()
             )
+
             db.session.add(photo_improved)
             db.session.commit()
 
             photo.photo_improved_id = photo_improved.id
             db.session.commit()
 
-            return jsonify({'message': 'Imagen procesada exitosamente', 'processed_image_path': processed_image_path})
-
+            return jsonify({'message': 'Imagen procesada exitosamente', 'processed_image_path': processed_image_path , 'id': photo_improved.id})
 
         except Exception as e:
             return jsonify({'error': 'Error al procesar la imagen', 'details': str(e)}), 500
-
 
 @cross_origin
 @ia_bp.route('/get_processed_image/<int:photo_improved_id>', methods=['GET'])
@@ -118,6 +113,9 @@ def process_image():
 def get_processed_image(photo_improved_id):
     photo_improved = Photo_improved.query.get(photo_improved_id)
     if photo_improved:
-        return jsonify({'processed_image_url': photo_improved.path})
+        directory = os.path.join(current_app.root_path)
+        filename = os.path.join(photo_improved.path)
+        print("RUTA : ", filename)
+        return send_from_directory(directory, filename)
     else:
         return jsonify({'error': 'La imagen no existe'}), 404

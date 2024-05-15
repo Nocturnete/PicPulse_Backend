@@ -80,3 +80,10 @@ def photo_grid():
     # print("URLS PHOTOS", photo_urls)
     current_app.logger.info("LISTA DE FOTOS CARGADA")
     return jsonify(images=photo_urls), 200
+
+
+
+@cross_origin
+@photo_bp.route('/uploads/<path:filename>', methods=['GET'])
+def serve_photo(filename):
+    return send_from_directory(os.path.join(current_app.root_path, 'uploads'), filename)
