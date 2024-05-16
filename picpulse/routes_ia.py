@@ -1,37 +1,44 @@
-import os
-import datetime
 from flask import Blueprint, jsonify, request, current_app, g, send_from_directory
-from werkzeug.utils import secure_filename
 from .models import Photo, Photo_improved, Album
+from werkzeug.utils import secure_filename
 from .routes_auth import token_auth
 from sqlalchemy.sql import func
 from . import db, cross_origin
 import picpulse.SR as arch
 import numpy as np
+import datetime
 import torch
 import cv2
+import os
+
 
 ia_bp = Blueprint('ia_bp', __name__)
 
+
 device = torch.device('cpu')
-model_path = 'picpulse/models/HighQuality.pth' 
+
+model_path = 'picpulse/models/HighQuality.pth'
 model = arch.RRDBNet(3, 3, 64, 23, gc=32)
 model.load_state_dict(torch.load(model_path, map_location=device), strict=False)
 model.eval()
 model = model.to(device) 
 
+
+# TODO ALLOWED EXTENSION
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in current_app.config.get('ALLOWED_EXTENSIONS')
 
+
+# TODO SAVE AND IMPROVE IMAGE
 @ia_bp.route('/process_image', methods=['POST'])
 @token_auth.login_required
 def process_image():
     user_id = g.current_user.id
 
+    image_file = request.files['image']
+
     if 'image' not in request.files:
         return jsonify({'error': 'No se proporcionó ningún archivo'}), 400
-
-    image_file = request.files['image']
 
     if image_file.filename == '':
         return jsonify({'error': 'No se ha proporcionado ninguna imagen'}), 400
@@ -40,6 +47,7 @@ def process_image():
         filename = secure_filename(image_file.filename)
         now = datetime.datetime.now().strftime('%Y-%m-%d_%H')
         unique_filename = f"{now}_{filename}"
+
         folder_name = f"{user_id}"
         folder_path = os.path.join(current_app.config['UPLOAD_FOLDER'], folder_name)
         
@@ -76,18 +84,21 @@ def process_image():
             output = (output * 255.0).round()
 
             processed_image_name = "HQ_" + unique_filename
-            processed_image_path =  os.path.join(current_app.config['UPLOAD_FOLDER'], folder_name, processed_image_name)  # Modificado
-            
+            processed_image_path =  os.path.join(current_app.config['UPLOAD_FOLDER'], folder_name, processed_image_name)
+
             cv2.imwrite(processed_image_path, output)
             
             album = Album.query.filter_by(user_id=user_id).first()
+            album_id = album.id
 
-            if album:
-                album_id = album.id
+            image_path = "uploads/" + folder_name + "/" + processed_image_name
+            # print ("***************************************************************")
+            # print ("RUTA NUEVA: ", image_path)
+            # print ("***************************************************************")
 
             photo_improved = Photo_improved(
                 name = processed_image_name,
-                path = processed_image_path,
+                path = image_path,
                 size = os.path.getsize(processed_image_path),
                 format = filename.rsplit('.', 1)[1].lower(),
                 user_id = user_id,
@@ -107,15 +118,21 @@ def process_image():
         except Exception as e:
             return jsonify({'error': 'Error al procesar la imagen', 'details': str(e)}), 500
 
+
+# TODO VIEW IMAGE
 @cross_origin
 @ia_bp.route('/get_processed_image/<int:photo_improved_id>', methods=['GET'])
 @token_auth.login_required
 def get_processed_image(photo_improved_id):
     photo_improved = Photo_improved.query.get(photo_improved_id)
+
     if photo_improved:
         directory = os.path.join(current_app.root_path)
         filename = os.path.join(photo_improved.path)
-        print("RUTA : ", filename)
+        # print("RUTA : ", directory)
+        # print("BD : ", filename)
+        
         return send_from_directory(directory, filename)
+    
     else:
         return jsonify({'error': 'La imagen no existe'}), 404
