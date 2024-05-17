@@ -76,7 +76,7 @@ def process_image():
             output = (output * 255.0).round()
 
             processed_image_name = "HQ_" + unique_filename
-            processed_image_path =  os.path.join(current_app.config['UPLOAD_FOLDER'], folder_name, processed_image_name)  # Modificado
+            processed_image_path =  os.path.join(current_app.config['UPLOAD_FOLDER'], folder_name, processed_image_name) 
             
             cv2.imwrite(processed_image_path, output)
             

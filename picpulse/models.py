@@ -130,7 +130,3 @@ class Photo(db.Model):
     created_at = db.Column(db.DateTime, server_default=func.now())
     
     photo_improved = db.relationship('Photo_improved', backref='photos')
-
-
-
-    
